@@ -38,7 +38,21 @@ Deno.serve({
       document.head.prepend(base);
     }, targetUrl);
 
-    const html = await page.content();
+    let html = await page.content();
+    const proxyBase = `http://${req.headers.get("host")}/?url=`;
+    
+    // replace href
+    html = html.replace(/<a\s+[^>]*href="([^"]+)"/gi, (match, href) => {
+        // reject internal links
+        if (href.startsWith('#') || href.startsWith('javascript:')) return match;
+    
+        try {
+            const absoluteUrl = new URL(href, targetUrl).href;
+            return match.replace(href, proxyBase + encodeURIComponent(absoluteUrl));
+        } catch {
+            return match;
+        }
+    });
     await page.close();
 
     return new Response(html, {
